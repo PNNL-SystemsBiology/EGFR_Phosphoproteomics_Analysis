@@ -1,0 +1,192 @@
+---
+title: Phosphorylation sites processing
+jupyter: python3
+---
+
+## Required Packages and Functions
+
+
+```{python}
+from utils import *
+
+warnings.filterwarnings("ignore")
+home = str(Path.home())
+plt.rcParams['figure.figsize'] = [7, 5]
+plt.rcParams['figure.dpi'] = 100 # 200 e.g. is really fine, but slower
+```
+
+## Get essential datasets ready
+
+```{python} # Uniprot fasta data
+fasta_file = "./UP000005640_9606.fasta"
+proteome_seqs = {uniprot_item.id.split('|')[1] : str(uniprot_item.seq) for uniprot_item in SeqIO.parse(fasta_file, "fasta")}
+# Phospho site plus data
+phosphositeplus_clustered = pd.read_pickle("phospho_site_plus_human_clustered.pkl")
+# phosphositeplus_clustered.head()
+```
+
+## Analyize the phosphoproteomics data
+
+### Import and preprocess data
+
+```{python}
+dat_uniprot_col = "UniProt"
+dat_residue_col = "Residue"
+dat_pept_col = "Peptide"
+dat_site_col = "Site"
+dat_prot_col = "Protein"
+ptm_label = '*'
+```
+
+#### Time course data
+
+```{python}
+mcf_ts_pept = pd.read_excel("./phospho_proteomics_data/MCF10A_EGF_timecourse_data_20211112.xlsx", sheet_name="MCF10A_phospho")
+# mcf_ts_pept.head()
+# print(mcf_ts_pept.shape)
+# mcf_ts_pept.columns
+phospho_peptide = mcf_ts_pept
+out_name = "./results/MCF10A_timecourse"
+val_cols = ts_val_cols = list(phospho_peptide.columns[7:])
+avgRII_col = "avgRII"
+reannotate_and_3d_cluster(phospho_peptide, phosphositeplus_clustered, proteome_seqs, val_cols, out_name, avgRII_col = avgRII_col, ascore_thr=60, multipho_thr=60)
+```
+
+#### Dose response data
+
+```{python}
+mcf_dr_pept = pd.read_excel("./phospho_proteomics_data/MCF10A_EGF_doses_data_20211222.xlsx", sheet_name="Phospho")
+# mcf_dr_pept.head()
+# print(mcf_dr_pept.shape)
+# mcf_dr_pept.columns
+mcf_dr_pept_1 = mcf_dr_pept[[mcf_dr_pept.columns[i] for i in list(range(6)) + [16] + list(range(6,16))]]
+mcf_dr_pept_2 = mcf_dr_pept[[mcf_dr_pept.columns[i] for i in list(range(6)) + [26] + list(range(17,26))]]
+# mcf_dr_pept_2.head()
+```
+
+##### Plex 1
+```{python}
+phospho_peptide = mcf_dr_pept_1
+out_name = "./results/MCF10A_doseresponse_R1"
+val_cols = dr_R1_val_cols = list(phospho_peptide.columns[7:])
+avgRII_col = "avgRII_R1"
+reannotate_and_3d_cluster(phospho_peptide, phosphositeplus_clustered, proteome_seqs, val_cols, out_name, avgRII_col = avgRII_col, ascore_thr=60, multipho_thr=60)
+```
+
+##### Plex 2
+```{python}
+phospho_peptide = mcf_dr_pept_2
+out_name = "./results/MCF10A_doseresponse_R2"
+val_cols = dr_R2_val_cols = list(phospho_peptide.columns[7:])
+avgRII_col = "avgRII_R2"
+reannotate_and_3d_cluster(phospho_peptide, phosphositeplus_clustered, proteome_seqs, val_cols, out_name, avgRII_col = avgRII_col, ascore_thr=60, multipho_thr=60)
+```
+
+#### Inhibitor data
+```{python}
+# mcf_ih_pept = pd.read_excel("./phospho_proteomics_data/MCF10A_EGF_inhibitors_peptide_data_20220103.xlsx", sheet_name="Phospho")
+mcf_ih_pept = pd.read_excel("./phospho_proteomics_data/MCF10A_EGF_inhibitors_peptide_data_20220111.xlsx", sheet_name="Phospho_updated")
+mcf_ih_pept_exp2 = pd.read_excel("./phospho_proteomics_data/20230426_MCF10A_EGF_inhibitors_exp2_phospho_peptide_level_normalized_by_phospho_repeat_randomized.xlsx", sheet_name="20230426_MCF10A_EGF_inhibitors_")
+mcf_ih_pept_exp2_cols = {"Sample_A": "AZD0530_R1", "Sample_B": "LJH686+EGF_R1", 
+                         "Sample_C": "LY294002+EGF_R2", "Sample_D": "LJH686_R1", 
+                         "Sample_E": "DMSO+EGF_R1", "Sample_F": "DMSO_R2", 
+                         "Sample_G": "LY294002_R2", "Sample_H": "LY294002+EGF_R1", 
+                         "Sample_I": "AZD0530_R2", "Sample_J": "AZD0530+EGF_R1", 
+                         "Sample_K": "LJH686+EGF_R2", "Sample_L": "DMSO_R1", 
+                         "Sample_M": "DMSO+EGF_R2", "Sample_N": "AZD0530+EGF_R2", 
+                         "Sample_O": "LJH686_R2", "Sample_P": "LY294002_R1"}
+mcf_ih_pept_exp2.columns = [mcf_ih_pept_exp2_cols[i] if i in mcf_ih_pept_exp2_cols.keys() else i for i in mcf_ih_pept_exp2.columns]
+mcf_ih_pept_exp2.head()
+print(mcf_ih_pept_exp2.shape)
+mcf_ih_pept_exp2.columns
+```
+
+##### Check median centers
+```{python}
+# mcf_ih_val_cols = list(mcf_ih_pept.columns[6:22]) + list(mcf_ih_pept.columns[23:39])
+# mcf_ih_pept_vals = copy.deepcopy(mcf_ih_pept[mcf_ih_val_cols])
+# mcf_ih_pept_vals.head()
+# mcf_ih_pept_vals.iloc[:,0:16] = mcf_ih_pept_vals.iloc[:,0:16].add(mcf_ih_pept["avgRII_plex1"], axis=0)
+# mcf_ih_pept_vals.iloc[:,16:32] = mcf_ih_pept_vals.iloc[:,16:32].add(mcf_ih_pept["avgRII_plex2"], axis=0)
+# mcf_ih_pept_vals.head()
+# boxplot = mcf_ih_pept_vals.boxplot()
+##### Median centering the data
+# mcf_ih_pept_vals_medians = mcf_ih_pept_vals.median(axis=0)
+# mcf_ih_pept_vals_median_diffs = copy.deepcopy(mcf_ih_pept_vals_medians)
+# mcf_ih_pept_vals_median_diffs[:16] -= np.mean(mcf_ih_pept_vals_medians[:16])
+# mcf_ih_pept_vals_median_diffs[16:] -= np.mean(mcf_ih_pept_vals_medians[16:])
+# mcf_ih_pept_vals_centered = copy.deepcopy(mcf_ih_pept_vals)
+# mcf_ih_pept_vals_centered.iloc[:,0:16] = mcf_ih_pept_vals_centered.iloc[:,0:16].sub(mcf_ih_pept_vals_median_diffs[:16], axis=1)
+# mcf_ih_pept_vals_centered.iloc[:,16:32] = mcf_ih_pept_vals_centered.iloc[:,16:32].sub(mcf_ih_pept_vals_median_diffs[16:],axis=1)
+# mcf_ih_pept_vals_centered.head()
+# mcf_ih_pept_vals_centered - mcf_ih_pept_vals
+# mcf_ih_pept["avgRII_plex1"] = mcf_ih_pept_vals_centered.iloc[:,:16].mean(axis=1)
+# mcf_ih_pept["avgRII_plex2"] = mcf_ih_pept_vals_centered.iloc[:,16:].mean(axis=1)
+# mcf_ih_pept.iloc[:,6:22] = mcf_ih_pept_vals_centered.iloc[:,0:16].sub(mcf_ih_pept["avgRII_plex1"], axis=0)
+# mcf_ih_pept.iloc[:,23:39] = mcf_ih_pept_vals_centered.iloc[:,16:32].sub(mcf_ih_pept["avgRII_plex2"], axis=0)
+# mcf_ih_pept.head()
+# new_mcf_ih_pept_vals = copy.deepcopy(mcf_ih_pept[mcf_ih_val_cols])
+# new_mcf_ih_pept_vals.iloc[:,0:16] = new_mcf_ih_pept_vals.iloc[:,0:16].add(mcf_ih_pept["avgRII_plex1"], axis=0)
+# new_mcf_ih_pept_vals.iloc[:,16:32] = new_mcf_ih_pept_vals.iloc[:,16:32].add(mcf_ih_pept["avgRII_plex2"], axis=0)
+# new_mcf_ih_pept_vals.head()
+# boxplot = new_mcf_ih_pept_vals.boxplot()
+```
+
+Check the exp2 data
+```{python}
+mcf_ih_val_cols = list(mcf_ih_pept_exp2.columns[7:])
+mcf_ih_pept_vals = mcf_ih_pept_exp2[mcf_ih_val_cols].copy()
+mcf_ih_pept_vals.head()
+mcf_ih_pept_vals = mcf_ih_pept_vals.add(mcf_ih_pept_exp2["avgRII"], axis=0)
+mcf_ih_pept_vals.head()
+# boxplot = mcf_ih_pept_vals.boxplot()
+##### Median centering the data
+mcf_ih_pept_vals_medians = mcf_ih_pept_vals.median(axis=0)
+mcf_ih_pept_vals_median_diffs = mcf_ih_pept_vals_medians.copy()
+mcf_ih_pept_vals_median_diffs -= np.mean(mcf_ih_pept_vals_medians)
+mcf_ih_pept_vals_centered = mcf_ih_pept_vals.copy()
+mcf_ih_pept_vals_centered = mcf_ih_pept_vals_centered.sub(mcf_ih_pept_vals_median_diffs, axis=1)
+mcf_ih_pept_vals_centered.head()
+mcf_ih_pept_vals_centered - mcf_ih_pept_vals
+mcf_ih_pept_exp2["avgRII"] = mcf_ih_pept_vals_centered.mean(axis=1)
+mcf_ih_pept_exp2.iloc[:,7:] = mcf_ih_pept_vals_centered.sub(mcf_ih_pept_exp2["avgRII"], axis=0)
+mcf_ih_pept_exp2.head()
+new_mcf_ih_pept_vals = mcf_ih_pept_exp2[mcf_ih_val_cols].copy()
+new_mcf_ih_pept_vals = new_mcf_ih_pept_vals.add(mcf_ih_pept_exp2["avgRII"], axis=0)
+new_mcf_ih_pept_vals.head()
+# boxplot = new_mcf_ih_pept_vals.boxplot()
+new_mcf_ih_pept_vals.boxplot()
+```
+##### Now process the data
+```{python}
+mcf_ih_pept_1 = mcf_ih_pept[[mcf_ih_pept.columns[i] for i in list(range(6)) + [22] + list(range(6,22))]]
+mcf_ih_pept_2 = mcf_ih_pept[[mcf_ih_pept.columns[i] for i in list(range(6)) + [39] + list(range(23,39))]]
+# mcf_ih_pept_2.head()
+```
+
+##### Plex 1
+```{python}
+phospho_peptide = mcf_ih_pept_1
+out_name = "./results/MCF10A_inhibitors_R1"
+val_cols = ih_R1_val_cols = list(phospho_peptide.columns[7:])
+avgRII_col = "avgRII_plex1"
+reannotate_and_3d_cluster(phospho_peptide, phosphositeplus_clustered, proteome_seqs, val_cols, out_name, avgRII_col = avgRII_col, ascore_thr=60, multipho_thr=60)
+```
+
+##### Plex 2
+```{python}
+phospho_peptide = mcf_ih_pept_2
+out_name = "./results/MCF10A_inhibitors_R2"
+val_cols = ih_R2_val_cols = list(phospho_peptide.columns[7:])
+avgRII_col = "avgRII_plex2"
+reannotate_and_3d_cluster(phospho_peptide, phosphositeplus_clustered, proteome_seqs, val_cols, out_name, avgRII_col = avgRII_col, ascore_thr=60, multipho_thr=60)
+```
+
+##### Exp 2
+```{python}
+phospho_peptide = mcf_ih_pept_exp2
+out_name = "./results/MCF10A_inhibitors_Exp2"
+val_cols = ih_R2_val_cols = list(phospho_peptide.columns[7:])
+avgRII_col = "avgRII"
+reannotate_and_3d_cluster(phospho_peptide, phosphositeplus_clustered, proteome_seqs, val_cols, out_name, avgRII_col = avgRII_col, ascore_thr=60, multipho_thr=60)
+```
