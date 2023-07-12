@@ -6,4 +6,4 @@ Scripts for analyzing the phosphoproteomics data of EGFR signaling pathway.
 
 Some of the python packages in utils.py need to be installed before runign the script
 
-The script is written in a Quarto markdown format. One need to install Quarto before runing the qmd file.
+The script is written in a Quarto markdown format. One need to install Quarto[https://quarto.org/] before runing the qmd file.
