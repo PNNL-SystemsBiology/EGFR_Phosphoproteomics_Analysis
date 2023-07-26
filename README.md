@@ -1,4 +1,4 @@
-# EGFR_Posphoproteomics_Analysis
+# EGFR_Phosphoproteomics_Analysis
 Scripts for analyzing the phosphoproteomics data of EGFR signaling pathway.
 
 
